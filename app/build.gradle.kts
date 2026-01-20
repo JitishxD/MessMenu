@@ -20,7 +20,11 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // Shrink code + remove unused resources to reduce APK size.
+            // This also improves startup by reducing dex + class loading.
+            isMinifyEnabled = true
+            isShrinkResources = true
+
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -37,6 +41,20 @@ android {
     buildFeatures {
         compose = true
     }
+
+    // Keep APK a bit smaller by excluding common metadata we don't need at runtime.
+    packaging {
+        resources {
+            excludes += setOf(
+                "META-INF/{AL2.0,LGPL2.1}",
+                "META-INF/LICENSE*",
+                "META-INF/NOTICE*",
+                "META-INF/DEPENDENCIES",
+                "META-INF/*.kotlin_module"
+            )
+        }
+    }
+
 }
 
 dependencies {
@@ -49,9 +67,6 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-
-    // Activity + Compose integration (provides ComponentActivity, setContent, etc.)
-    implementation("androidx.activity:activity-compose:1.7.2")
 
     // DataStore Preferences for persisting theme choice
     implementation("androidx.datastore:datastore-preferences:1.1.1")

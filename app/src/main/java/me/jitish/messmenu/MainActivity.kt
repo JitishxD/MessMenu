@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -49,8 +50,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import me.jitish.messmenu.ui.theme.MessMenuTheme
 import org.json.JSONObject
 import java.time.LocalDate
@@ -261,8 +264,17 @@ fun MessMenuApp(
 ) {
     val context = LocalContext.current
 
-    // Load mess data once
-    val messData = remember { loadMessData(context) }
+    // Load mess data off the main thread to improve time-to-first-frame.
+    var messData by remember { mutableStateOf<Map<MealType, Map<String, List<String>>>>(emptyMap()) }
+    var dataLoadFailed by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        val loaded = withContext(Dispatchers.IO) { loadMessData(context) }
+        if (loaded.isEmpty()) {
+            dataLoadFailed = true
+        }
+        messData = loaded
+    }
 
     // State for current time - triggers recomposition
     var currentTime by remember { mutableStateOf(LocalTime.now()) }
@@ -299,15 +311,28 @@ fun MessMenuApp(
             )
         }
     ) { innerPadding ->
-        if (mealStatus != null) {
-            MessMenuContent(
-                mealStatus = mealStatus,
-                modifier = Modifier.padding(innerPadding)
-            )
-        } else {
-            // Fallback if data loading fails
-            ErrorState(modifier = Modifier.padding(innerPadding))
+        when {
+            messData.isEmpty() && !dataLoadFailed -> {
+                LoadingState(modifier = Modifier.padding(innerPadding))
+            }
+            mealStatus != null -> {
+                MessMenuContent(
+                    mealStatus = mealStatus,
+                    modifier = Modifier.padding(innerPadding)
+                )
+            }
+            else -> {
+                // Fallback if data loading fails
+                ErrorState(modifier = Modifier.padding(innerPadding))
+            }
         }
+    }
+}
+
+@Composable
+fun LoadingState(modifier: Modifier = Modifier) {
+    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
     }
 }
 
