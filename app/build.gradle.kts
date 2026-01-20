@@ -49,6 +49,16 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+
+    // Activity + Compose integration (provides ComponentActivity, setContent, etc.)
+    implementation("androidx.activity:activity-compose:1.7.2")
+
+    // DataStore Preferences for persisting theme choice
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    // Material Icons Extended for LightMode/DarkMode icons
+    implementation("androidx.compose.material:material-icons-extended")
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

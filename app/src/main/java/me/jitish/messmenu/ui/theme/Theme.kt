@@ -2,7 +2,6 @@ package me.jitish.messmenu.ui.theme
 
 import android.app.Activity
 import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -13,6 +12,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import me.jitish.messmenu.ThemeMode
 
 // Custom dark color scheme with warm amber accent
 private val DarkColorScheme = darkColorScheme(
@@ -42,13 +42,22 @@ private val LightColorScheme = lightColorScheme(
     onBackground = OnSurfaceLight
 )
 
+/**
+ * Main theme composable for the MessMenu app.
+ *
+ * ThemeMode is explicitly controlled by the in-app toggle, so we don't follow
+ * system theme here.
+ */
 @Composable
 fun MessMenuTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    themeMode: ThemeMode = ThemeMode.LIGHT,
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = false, // Disabled for consistent branding
     content: @Composable () -> Unit
 ) {
+    // Dark theme is forced solely from the saved preference.
+    val darkTheme = themeMode == ThemeMode.DARK
+
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current

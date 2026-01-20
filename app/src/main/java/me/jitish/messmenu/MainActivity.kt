@@ -20,17 +20,27 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import me.jitish.messmenu.ui.theme.MessMenuTheme
 import org.json.JSONObject
 import java.time.LocalDate
@@ -48,10 +59,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
-// ============================================================================
-// DATA CLASSES
-// ============================================================================
-
+// ======== DATA CLASSES ========
 /**
  * Represents a meal with its type, timing, and menu items.
  */
@@ -99,10 +107,7 @@ data class MealStatus(
     val dayName: String
 )
 
-// ============================================================================
-// JSON PARSING
-// ============================================================================
-
+// ======== JSON PARSING ========
 /**
  * Loads and parses mess menu data from assets/messData.json.
  * Returns a map of MealType to a map of day names to menu items.
@@ -148,10 +153,7 @@ fun loadMessData(context: Context): Map<MealType, Map<String, List<String>>> {
     }
 }
 
-// ============================================================================
-// MEAL DETECTION LOGIC
-// ============================================================================
-
+// ======== MEAL DETECTION LOGIC ========
 /**
  * Determines the current or upcoming meal based on time and day.
  *
@@ -221,31 +223,42 @@ private fun findNextMeal(
     )
 }
 
-// ============================================================================
-// MAIN ACTIVITY
-// ============================================================================
-
+// ======== MAIN ACTIVITY ========
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            MessMenuTheme {
-                MessMenuApp()
+            val themePreference = remember { ThemePreference(applicationContext) }
+            val themeMode by themePreference.themeModeFlow.collectAsState(initial = ThemeMode.LIGHT)
+            val scope = rememberCoroutineScope()
+
+            MessMenuTheme(themeMode = themeMode) {
+                MessMenuApp(
+                    themeMode = themeMode,
+                    onThemeToggle = {
+                        val next = themePreference.toggled(themeMode)
+                        scope.launch { themePreference.setThemeMode(next) }
+                    }
+                )
             }
         }
     }
 }
 
-// ============================================================================
-// COMPOSABLE UI
-// ============================================================================
-
+// ======== COMPOSABLE UI ========
 /**
- * Main app composable that handles state and auto-refresh.
+ * Main app composable that handles state, auto-refresh, and theme toggle.
+ *
+ * @param themeMode Current theme mode (LIGHT or DARK)
+ * @param onThemeToggle Callback when user toggles theme
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MessMenuApp() {
+fun MessMenuApp(
+    themeMode: ThemeMode = ThemeMode.LIGHT,
+    onThemeToggle: () -> Unit = {}
+) {
     val context = LocalContext.current
 
     // Load mess data once
@@ -269,7 +282,22 @@ fun MessMenuApp() {
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            // Minimal top bar with only the theme toggle button
+            TopAppBar(
+                title = { },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                ),
+                actions = {
+                    ThemeToggleButton(
+                        themeMode = themeMode,
+                        onToggle = onThemeToggle
+                    )
+                }
+            )
+        }
     ) { innerPadding ->
         if (mealStatus != null) {
             MessMenuContent(
@@ -280,6 +308,39 @@ fun MessMenuApp() {
             // Fallback if data loading fails
             ErrorState(modifier = Modifier.padding(innerPadding))
         }
+    }
+}
+
+/**
+ * Minimal theme toggle button.
+ *
+ * IMPORTANT: icon indicates the *action*:
+ * - ☀️ means "switch to Light"
+ * - 🌙 means "switch to Dark"
+ */
+@Composable
+fun ThemeToggleButton(
+    themeMode: ThemeMode,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // Icon indicates the action:
+    // ☀️ switches to Light, 🌙 switches to Dark
+    val (icon, desc) = when (themeMode) {
+        ThemeMode.DARK -> Icons.Filled.LightMode to "Switch to Light mode"
+        ThemeMode.LIGHT -> Icons.Filled.DarkMode to "Switch to Dark mode"
+    }
+
+    IconButton(
+        onClick = onToggle,
+        modifier = modifier.size(48.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = desc,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(24.dp)
+        )
     }
 }
 
@@ -496,14 +557,11 @@ fun ErrorState(modifier: Modifier = Modifier) {
     }
 }
 
-// ============================================================================
-// PREVIEWS
-// ============================================================================
-
+// ======== PREVIEWS ========
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun MessMenuPreview() {
-    MessMenuTheme {
+    MessMenuTheme(themeMode = ThemeMode.LIGHT) {
         // Sample data for preview
         val sampleMealStatus = MealStatus(
             isNowServing = true,
@@ -537,7 +595,7 @@ fun MessMenuPreview() {
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun MessMenuUpcomingPreview() {
-    MessMenuTheme {
+    MessMenuTheme(themeMode = ThemeMode.LIGHT) {
         val sampleMealStatus = MealStatus(
             isNowServing = false,
             meal = Meal(
@@ -570,7 +628,7 @@ fun MessMenuUpcomingPreview() {
 @Preview(showBackground = true, showSystemUi = true, uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)
 @Composable
 fun MessMenuDarkPreview() {
-    MessMenuTheme(darkTheme = true) {
+    MessMenuTheme(themeMode = ThemeMode.DARK) {
         val sampleMealStatus = MealStatus(
             isNowServing = true,
             meal = Meal(
