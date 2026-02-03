@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,15 +19,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -50,11 +57,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
 import me.jitish.messmenu.ui.theme.MessMenuTheme
+
 import org.json.JSONObject
 import java.time.LocalDate
 import java.time.LocalTime
@@ -198,7 +208,7 @@ private fun findNextMeal(
     messData: Map<MealType, Map<String, List<String>>>,
     currentTime: LocalTime,
     currentDate: LocalDate
-): MealStatus? {
+): MealStatus {
     val mealOrder = listOf(MealType.BREAKFAST, MealType.LUNCH, MealType.HIGH_TEA, MealType.DINNER)
 
     // Find the next meal today
@@ -264,6 +274,9 @@ fun MessMenuApp(
 ) {
     val context = LocalContext.current
 
+    // Navigation state
+    var showFullMenu by remember { mutableStateOf(false) }
+
     // Load mess data off the main thread to improve time-to-first-frame.
     var messData by remember { mutableStateOf<Map<MealType, Map<String, List<String>>>>(emptyMap()) }
     var dataLoadFailed by remember { mutableStateOf(false) }
@@ -292,38 +305,61 @@ fun MessMenuApp(
     // Get current meal status
     val mealStatus = getMealStatus(messData, currentTime, currentDate)
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            // Minimal top bar with only the theme toggle button
-            TopAppBar(
-                title = { },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                ),
-                actions = {
-                    ThemeToggleButton(
-                        themeMode = themeMode,
-                        onToggle = onThemeToggle
-                    )
-                }
-            )
-        }
-    ) { innerPadding ->
-        when {
-            messData.isEmpty() && !dataLoadFailed -> {
-                LoadingState(modifier = Modifier.padding(innerPadding))
-            }
-            mealStatus != null -> {
-                MessMenuContent(
-                    mealStatus = mealStatus,
-                    modifier = Modifier.padding(innerPadding)
+    // Handle back button press
+    BackHandler(enabled = showFullMenu) {
+        showFullMenu = false
+    }
+
+    if (showFullMenu) {
+        // Full Menu Screen
+        FullMenuScreen(
+            messData = messData,
+            themeMode = themeMode,
+            onThemeToggle = onThemeToggle,
+            onBackClick = { showFullMenu = false }
+        )
+    } else {
+        // Home Screen
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            containerColor = MaterialTheme.colorScheme.background,
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = "Mess Menu",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background,
+                        titleContentColor = MaterialTheme.colorScheme.onBackground
+                    ),
+                    actions = {
+                        ThemeToggleButton(
+                            themeMode = themeMode,
+                            onToggle = onThemeToggle
+                        )
+                    }
                 )
             }
-            else -> {
-                // Fallback if data loading fails
-                ErrorState(modifier = Modifier.padding(innerPadding))
+        ) { innerPadding ->
+            when {
+                messData.isEmpty() && !dataLoadFailed -> {
+                    LoadingState(modifier = Modifier.padding(innerPadding))
+                }
+                mealStatus != null -> {
+                    MessMenuContent(
+                        mealStatus = mealStatus,
+                        modifier = Modifier.padding(innerPadding),
+                        onViewFullMenuClick = { showFullMenu = true }
+                    )
+                }
+                else -> {
+                    // Fallback if data loading fails
+                    ErrorState(modifier = Modifier.padding(innerPadding))
+                }
             }
         }
     }
@@ -375,16 +411,17 @@ fun ThemeToggleButton(
 @Composable
 fun MessMenuContent(
     mealStatus: MealStatus,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onViewFullMenuClick: () -> Unit = {}
 ) {
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .padding(horizontal = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         // Top spacing for edge-to-edge
-        item { Spacer(modifier = Modifier.height(24.dp)) }
+        item { Spacer(modifier = Modifier.height(8.dp)) }
 
         // Status Header (Now Serving / Upcoming Dish)
         item {
@@ -417,8 +454,30 @@ fun MessMenuContent(
             )
         }
 
+        // View Full Menu Button
+        item {
+            Button(
+                onClick = onViewFullMenuClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            ) {
+                Text(
+                    text = "View Full Menu",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+            }
+        }
+
         // Bottom spacing
-        item { Spacer(modifier = Modifier.height(32.dp)) }
+        item { Spacer(modifier = Modifier.height(16.dp)) }
     }
 }
 
@@ -582,6 +641,314 @@ fun ErrorState(modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * Full Menu Screen with its own Scaffold and TopAppBar.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FullMenuScreen(
+    messData: Map<MealType, Map<String, List<String>>>,
+    themeMode: ThemeMode,
+    onThemeToggle: () -> Unit,
+    onBackClick: () -> Unit
+) {
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "Weekly Menu",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Go back",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground
+                ),
+                actions = {
+                    ThemeToggleButton(
+                        themeMode = themeMode,
+                        onToggle = onThemeToggle
+                    )
+                }
+            )
+        }
+    ) { innerPadding ->
+        FullMenuContent(
+            messData = messData,
+            modifier = Modifier.padding(innerPadding)
+        )
+    }
+}
+
+/**
+ * Full menu content showing all meals for all days of the week.
+ */
+@Composable
+fun FullMenuContent(
+    messData: Map<MealType, Map<String, List<String>>>,
+    modifier: Modifier = Modifier
+) {
+    val days = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+    val scrollState = rememberScrollState()
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Top spacing
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Current day indicator
+        val today = LocalDate.now().dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.primaryContainer
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary)
+                )
+                Text(
+                    text = "Today is $today",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+        }
+
+        // Display menu for each day
+        days.forEach { day ->
+            val isToday = day == today
+            DayMenuSection(
+                dayName = day,
+                messData = messData,
+                isToday = isToday
+            )
+        }
+
+        // Bottom spacing for navigation bar
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+/**
+ * Section showing all meals for a specific day.
+ */
+@Composable
+fun DayMenuSection(
+    dayName: String,
+    messData: Map<MealType, Map<String, List<String>>>,
+    isToday: Boolean = false
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isToday)
+                MaterialTheme.colorScheme.primaryContainer
+            else
+                MaterialTheme.colorScheme.surfaceVariant
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (isToday) 4.dp else 0.dp
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Day name header with indicator
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Day indicator
+                if (isToday) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary)
+                    )
+                }
+
+                Text(
+                    text = dayName,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isToday)
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    else
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                if (isToday) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.primary
+                    ) {
+                        Text(
+                            text = "Today",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+            }
+
+            // Each meal type in a grid-like layout
+            MealType.entries.forEach { mealType ->
+                val items = messData[mealType]?.get(dayName) ?: emptyList()
+                if (items.isNotEmpty()) {
+                    MealSection(
+                        mealType = mealType,
+                        items = items
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Section showing a specific meal type and its items.
+ */
+@Composable
+fun MealSection(
+    mealType: MealType,
+    items: List<String>
+) {
+    val mealColor = when (mealType) {
+        MealType.BREAKFAST -> MaterialTheme.colorScheme.tertiary
+        MealType.LUNCH -> MaterialTheme.colorScheme.primary
+        MealType.HIGH_TEA -> MaterialTheme.colorScheme.secondary
+        MealType.DINNER -> MaterialTheme.colorScheme.error
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // Meal type header card
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Meal type header with timing
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        // Meal type color indicator
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(mealColor)
+                        )
+
+                        Text(
+                            text = mealType.displayName,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = mealColor.copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text = mealType.getTimingString(),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = mealColor,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                    thickness = 1.dp
+                )
+
+                // Menu items as a list with better visibility
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    items.forEachIndexed { index, item ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            // Small index number
+                            Text(
+                                text = "${index + 1}.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = mealColor
+                            )
+
+                            // Menu item name
+                            Text(
+                                text = item,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 // ======== PREVIEWS ========
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
@@ -682,3 +1049,103 @@ fun MessMenuDarkPreview() {
         }
     }
 }
+
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun ErrorStatePreview() {
+    MessMenuTheme(themeMode = ThemeMode.LIGHT) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            containerColor = MaterialTheme.colorScheme.background
+        ) { innerPadding ->
+            ErrorState(modifier = Modifier.padding(innerPadding))
+        }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun FullMenuPreview() {
+    MessMenuTheme(themeMode = ThemeMode.LIGHT) {
+        // Sample data for preview
+        val sampleMessData = mapOf(
+            MealType.BREAKFAST to mapOf(
+                "Monday" to listOf("Idli Vada", "Sambar", "Chutney", "Banana", "Bread", "Butter Jam", "Tea/Milk/Coffee"),
+                "Tuesday" to listOf("Poha Jalebi", "Chutney", "Jeera Aloo", "Mix Cut Fruit Salad", "Bread", "Butter Jam", "Tea/Milk/Coffee"),
+                "Wednesday" to listOf("Besan Chilla / Missal Pav", "Chutney", "Sprouts", "Banana", "Boiled Egg", "Bread", "Butter Jam", "Tea/Milk/Coffee"),
+                "Thursday" to listOf("Vermicelli / Paratha", "Aloo Bhaji", "Papaya", "Bread", "Butter Jam", "Tea/Milk/Coffee"),
+                "Friday" to listOf("Uttapam", "Onion Tomato Chutney", "Sprouts", "Banana", "Boiled Egg", "Bread Butter Jam", "Tea/Milk/Coffee"),
+                "Saturday" to listOf("Chole Bhature", "Mix Cut Fruit Salad", "Bread", "Butter Jam", "Tea/Milk/Coffee"),
+                "Sunday" to listOf("Masala Dosa / Idli", "Sambar Chutney", "Sprouts", "Banana", "Bread Butter Jam", "Tea/Milk/Coffee")
+            ),
+            MealType.LUNCH to mapOf(
+                "Monday" to listOf("Roti", "Kadhai Veg", "Dal Tadka", "Plain Rice", "Fryums", "Pineapple Halwa", "Pickle"),
+                "Tuesday" to listOf("Puri", "Chole", "Mix Dal", "Plain Rice", "Mix Salad", "South Indian Plain Rice", "Pickle"),
+                "Wednesday" to listOf("Roti", "Veg Kofta", "Dal Tadka", "Mutter Pulav", "Fryums", "Sweet Boondi", "Pickle"),
+                "Thursday" to listOf("Mix Pulse Tadka Masala", "Plain Dal", "Plain Rice", "Mix Salad", "Lemon Rice", "Beetroot Poriyal", "Pickle"),
+                "Friday" to listOf("Roti", "Kadi Pakoda", "Dal Fry", "Plain Rice", "Fryums", "Brinjal Kuzhambu", "Pickle"),
+                "Saturday" to listOf("Roti", "Aloo Jeera Dry", "Mix Dal", "Jeera Rice", "Mix Salad", "Potato Poriyal", "Pickle"),
+                "Sunday" to listOf("Roti", "Veg Biryani", "Butter Paneer Masala", "Dal Khichdi", "Onion Raita", "Pickle")
+            ),
+            MealType.HIGH_TEA to mapOf(
+                "Monday" to listOf("Vada Pav", "Sauce/Chutney", "Tea/Coffee/Milk"),
+                "Tuesday" to listOf("Variety of Samosa", "Tea/Coffee/Milk"),
+                "Wednesday" to listOf("Aloo Channa Chat", "Green Chutney", "Tea/Coffee/Milk"),
+                "Thursday" to listOf("Aloo Vada/Fried Idli", "Tamarind Chutney", "Tea/Coffee/Milk"),
+                "Friday" to listOf("Veg Chowmein", "Tea/Coffee/Milk"),
+                "Saturday" to listOf("Dhokla", "Green Chutney", "Tea/Coffee/Milk"),
+                "Sunday" to listOf("White Sauce Pasta", "Sauce/Chutney", "Tea/Coffee/Milk")
+            ),
+            MealType.DINNER to mapOf(
+                "Monday" to listOf("Roti", "Veg Kolhapuri", "Dal Fry", "Plain Rice", "South Indian Plain Rice", "Tomato Rasam", "Pickle"),
+                "Tuesday" to listOf("Roti", "Aloo Mutter Jhol", "Dal Tadka", "Plain Rice", "Pepper Rasam", "Hot & Sour Soup", "Pickle"),
+                "Wednesday" to listOf("Roti", "Paneer Masala", "Plain Dal", "Plain Rice", "Inji Rasam", "Pickle"),
+                "Thursday" to listOf("Roti", "Egg Gravy", "Ghee Rice", "Dal Fry", "Jeera Rice", "Veg Manchow Soup", "Pickle"),
+                "Friday" to listOf("Roti", "Butter Chicken", "Kadai Paneer", "Dal Tadka", "Rice", "Puli Rasam", "Pickle"),
+                "Saturday" to listOf("Roti", "Gobi Mutter Jhol", "Jeera Rice", "Dal Fry", "Pepper Rasam", "Hot & Sour Soup", "Pickle"),
+                "Sunday" to listOf("Roti", "Aloo Soya Bean Masala", "Dal Makhani", "Plain Rice", "Paruppu Rasam", "Gulab Jamun")
+            )
+        )
+
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            FullMenuContent(messData = sampleMessData)
+        }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun FullMenuDarkPreview() {
+    MessMenuTheme(themeMode = ThemeMode.DARK) {
+        val sampleMessData = mapOf(
+            MealType.BREAKFAST to mapOf(
+                "Monday" to listOf("Idli Vada", "Sambar", "Chutney", "Banana", "Bread", "Butter Jam", "Tea/Milk/Coffee"),
+                "Tuesday" to listOf("Poha Jalebi", "Chutney", "Jeera Aloo", "Mix Cut Fruit Salad", "Bread", "Butter Jam", "Tea/Milk/Coffee")
+            ),
+            MealType.LUNCH to mapOf(
+                "Monday" to listOf("Roti", "Kadhai Veg", "Dal Tadka", "Plain Rice", "Fryums", "Pineapple Halwa", "Pickle"),
+                "Tuesday" to listOf("Puri", "Chole", "Mix Dal", "Plain Rice", "Mix Salad", "South Indian Plain Rice", "Pickle")
+            ),
+            MealType.HIGH_TEA to mapOf(
+                "Monday" to listOf("Vada Pav", "Sauce/Chutney", "Tea/Coffee/Milk"),
+                "Tuesday" to listOf("Variety of Samosa", "Tea/Coffee/Milk")
+            ),
+            MealType.DINNER to mapOf(
+                "Monday" to listOf("Roti", "Veg Kolhapuri", "Dal Fry", "Plain Rice", "South Indian Plain Rice", "Tomato Rasam", "Pickle"),
+                "Tuesday" to listOf("Roti", "Aloo Mutter Jhol", "Dal Tadka", "Plain Rice", "Pepper Rasam", "Hot & Sour Soup", "Pickle")
+            )
+        )
+
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            FullMenuContent(messData = sampleMessData)
+        }
+    }
+}
+
