@@ -1,46 +1,46 @@
 {
   "university": "VIT University Bhopal",
   "hostel": "Mayuri Boys Hostel",
-  "month": "January 2026",
+  "month": "February 2026",
   "meals": {
     "breakfast": {
-      "Monday": ["Idli / Vada (Fry)", "Sambar", "Chutney", "Banana", "Bread Butter/Jam", "Tea/Milk/Coffee"],
-      "Tuesday": ["Poha, Jalebi (Fry)", "Pongal Chutney", "Jeera Man", "Mix Cut fruit Salad", "Bread Butter/Jam", "Tea/Milk/Coffee"],
-      "Wednesday": ["Besan Chilla / Missal Pav", "Chutney", "Sprouts", "Banana", "Boiled Egg", "Bread Butter/Jam", "Tea/Milk/Coffee"],
-      "Thursday": ["Variety of Paratha (Shallow Fry)", "Aloo Bhaji", "Papaya", "Bread Butter/Jam", "Tea/Milk/Coffee"],
-      "Friday": ["Uthappam", "Onion Tomato Chutney", "Sprouts", "Banana", "Boiled Egg", "Bread Butter/Jam", "Tea/Milk/Coffee"],
-      "Saturday": ["Chole (M. Spicy)", "Bhature (Fry)", "Mix Cut fruit Salad", "Bread Butter/Jam", "Tea/Milk/Coffee"],
-      "Sunday": ["Masala Dosa / Mix Veg Dosa", "Sambar", "Chutney", "Sprouts", "Banana", "Bread Butter/Jam", "Tea/Milk/Coffee"]
+      "Monday": ["Idli/Vada", "Sambhar", "Chutney", "Banana", "Bread Butter/Jam", "Tea/Milk/Coffee"],
+      "Tuesday": ["Poha", "Jalebi", "Pongal Chutney", "Jeera Man", "Mix Cutfruit Salad", "Bread Butter/Jam", "Tea/Milk/Coffee"],
+      "Wednesday": ["Pav Bhaji/Upma", "Chutney", "Sprouts", "Banana", "Boiled Egg", "Bread Butter/Jam", "Tea/Milk/Coffee"],
+      "Thursday": ["Aloo Paratha", "Dahi", "Banana", "Bread Butter/Jam", "Tea/Milk/Coffee"],
+      "Friday": ["Onion Uttapam", "Onion Tomato Chutney", "Sprouts", "Fruit Salad", "Boiled Egg", "Bread Butter/Jam", "Tea/Milk/Coffee"],
+      "Saturday": ["Chole Bhature With Lemon Slice", "Mix Cutfruit Salad", "Bread Butter/Jam", "Tea/Milk/Coffee"],
+      "Sunday": ["Masala Dosa/Mix Veg Dosa", "Sambhar/Chutney", "Sprouts", "Banana", "Boiled Egg", "Bread Butter/Jam", "Tea/Milk/Coffee"]
     },
 
     "lunch": {
-      "Monday": ["Kadahi Veg (M, Spicy) / Besan Gatte Ki Sabji", "Dal Tadka", "Plain Rice", "Fryums", "Pineapple Halwa", "Tamarind Kara Kuzhambu", "Carrot Beans Poriyal", "Pepper Rasam", "Pickle"],
-      "Tuesday": ["Puri (Fry)", "Chole (M. Spicy)", "Mix Dal", "Plain Rice", "Mix Salad", "South Indian Plain Rice", "Bottle Gourd Kuzhambu", "Tomato Rasam", "Pickle"],
-      "Wednesday": ["Roti", "Veg Kofta", "Dal Tadka", "Mutter Pulav", "Fryums", "South Indian Plain Rice", "Vegetable Sambar", "Sweet Boondi", "Paruppu Rasam", "Pickle"],
-      "Thursday": ["Roti", "Mix Pulse Tadka Masala", "Plain Dal", "Plain Rice", "Mix Salad", "South Indian Plain Rice", "Louki More", "Beetroot Poriyal", "Plain Rasam", "Pickle"],
-      "Friday": ["Roti", "Kadai Pakoda", "Dal Fry", "Plain Rice", "Fryums", "South Indian Plain Rice", "Brinjal Kuzhambu (Spicy)", "Veg Avial", "Plain Rasam", "Pickle"],
-      "Saturday": ["Roti", "Aloo Jeera Dry (Spicy)", "Mix Dal", "Jeera Rice", "Mix Salad", "South Indian Plain Rice", "Potato Poriyal", "Pepper Rasam", "Pickle"],
-      "Sunday": ["Roti", "Veg Biryani (L. Spicy)", "Chicken Biryani (L. Spicy)", "Butter Paneer Masala (Sweet, Less Oil)", "Dal Kolhapuri (L. Spicy)", "Onion Raita", "Pickle"]
+      "Monday": ["Tawa Roti", "Jeera Aloo/Sev Tamatar", "Dal Fry", "Butter Milk", "Mix Salad", "Plain Rice North/South", "More Kuzhambu", "Raw Banana Poriyal", "Pepper Rasam", "Pickle"],
+      "Tuesday": ["White Channa Spicy", "Mix Dal", "Poori", "Mix Salad", "South Indian Plain Rice", "Bottle Gourd Kuzhambu", "Tomato Rasam", "Butter Milk/Juice", "Pickle"],
+      "Wednesday": ["Veg Kofta Sweet", "Dal Tadka", "Mutter Pulao", "Roti", "Fryums", "Sweet Boondi", "South Indian Plain Rice", "Vegetable Sambhar", "Paruppu Rasam", "Pickle"],
+      "Thursday": ["Rajma", "Jeera Rice", "Plain Roti", "Seasonal Veg", "Onion", "Mixed Veg Salad", "Plain Rice", "Veg Sambhar", "Rasam", "Beetroot Poriyal"],
+      "Friday": ["Kadi Pakoda", "Dal Fry", "Plain Rice", "Roti", "Mix Salad", "South Indian Plain Rice", "Brinjal Kuzhambu", "Veg Aviyal"],
+      "Saturday": ["Corn Palak", "Ghee Rice", "Dal Makhani", "South Indian Plain Rice", "Plain Roti", "Potato Kara Poriyal", "Pickle", "Mix Veg Sambhar", "Rasam", "Butter Milk"],
+      "Sunday": ["Veg Biryani", "Chicken Biryani", "Butter Paneer Masala", "Dal Kolhapuri", "Onion Raita", "Roti", "Pickle"]
     },
 
     "high_tea": {
-      "Monday": ["Vada Pav", "Sauce/Chutney", "Tea/Milk/Coffee"],
-      "Tuesday": ["Variety of Samosa (Fry)", "Sauce/Chutney", "Tea/Milk/Coffee"],
-      "Wednesday": ["Aloo Chana Chat", "Green Chutney", "Tea/Milk/Coffee"],
-      "Thursday": ["Aloo Vada (Fry) / Fried Idli", "Tamarind Chutney", "Tea/Milk/Coffee"],
-      "Friday": ["Veg Chowmin", "Tea/Milk/Coffee"],
-      "Saturday": ["Dhokla", "Green Chutney", "Tea/Milk/Coffee"],
-      "Sunday": ["White Sauce Pasta", "Sauce/Chutney", "Tea/Milk/Coffee"]
+      "Monday": ["Kachori", "Tamarind Chutney", "Tea/Milk/Coffee"],
+      "Tuesday": ["Variety Samosa", "Red Sauce/Green Chutney", "Tea/Milk/Coffee"],
+      "Wednesday": ["Cutlet 2 Nos", "Red Chilli Sauce", "Tea/Milk/Coffee"],
+      "Thursday": ["Chow Noodles/Fried Idli", "Sauce/Coconut Chutney", "Tea/Milk/Coffee"],
+      "Friday": ["Vada Pav", "Green Chutney", "Tea/Milk/Coffee"],
+      "Saturday": ["Bread Pakoda", "Red Tomato Chutney", "Tea/Milk/Coffee"],
+      "Sunday": ["White/Red Sauce Pasta", "Sauce/Chutney", "Tea/Milk/Coffee"]
     },
 
     "dinner": {
-      "Monday": ["Roti", "Veg Kolhapuri", "Egg Gravy", "Dal Fry", "Plain Rice", "South Indian Plain Rice", "Tomato Rasam", "Pickle"],
-      "Tuesday": ["Roti", "Aloo Mutter Jhol (L. Oil)", "Dal Tadka", "Plain Rice", "Paysam", "South Indian Plain Rice", "Pepper Rasam", "Hot & Sour Soup", "Pickle"],
-      "Wednesday": ["Roti", "Paneer Masala (L. Oil, L. Spicy)", "Kadahi Chicken Masala (L. Oil, L. Spicy)", "Plain Dal", "Plain Rice", "South Indian Plain Rice", "Inji Rasam (Ginger)", "Pickle"],
-      "Thursday": ["Roti", "Egg Gravy (L. Oil, L. Spicy)", "Ghugni", "Dal Fry", "Jeera Rice", "Pepper Rasam", "Veg Hakka Soup", "Pickle"],
-      "Friday": ["Roti", "Butter Chicken", "Kadai Paneer (Spicy, L. Oil)", "Dal Tadka", "Rice", "South Indian Plain Rice", "Puli Rasam (Amarind)", "Pickle"],
-      "Saturday": ["Roti", "Gobi Mutter Jhol (Spicy)", "Jeera Rice", "Dal Fry", "South Indian Plain Rice", "Hot & Sour Soup", "Pickle"],
-      "Sunday": ["Roti", "Aloo Soya Bean Masala", "Dal Makhani", "Plain Rice", "South Indian Plain Rice", "Paruppu Rasam (Pulse)", "Veg Sorba Soup", "Gulab Jamun"]
+      "Monday": ["Kadhai Mix Veg", "Egg Gravy", "Butter Roti/Plain Roti", "Multi Grain Khichdi", "Veg Poriyal", "Plain Rice North/South", "Tomato Rasam", "Rice Kheer"],
+      "Tuesday": ["Butter Roti/Plain Roti", "Fruit Custard", "Bhindi Masala", "Dal Tadka", "Plain Rice North/South", "Pepper Rasam", "Pickle"],
+      "Wednesday": ["Paneer Masala", "Kadai Chicken Masala", "Plain Dal", "Butter Roti", "Plain Rice North/South", "Inji Rasam", "Pickle"],
+      "Thursday": ["Egg Gravy", "Green Peas Masala", "Dal Fry", "Jeera Rice", "Butter Roti", "Suji Halwa", "Pepper Rasam", "Pickle", "Roti"],
+      "Friday": ["Tandoori Butter Chicken Gravy", "Kadai Paneer", "Dal Tadka", "Plain Roti", "Plain Rice North/South", "Puli Rasam (Tamarind)", "Pickle"],
+      "Saturday": ["Veg Pulao", "Lobial Gravy", "Plain Roti", "Toor Dal Fry", "South Indian Plain Rice", "Paruppu Rasam", "Pickle"],
+      "Sunday": ["Aloo White Peas Masala", "Dal Makhani", "Plain Rice", "Roti", "South Indian Plain Rice", "Bhindi Poriyal", "Paruppu Rasam Pulses", "Veg Sorba Soup", "Gulab Jamun"]
     }
   }
 }
