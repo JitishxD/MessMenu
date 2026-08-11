@@ -27,12 +27,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -71,6 +75,7 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlin.time.Duration.Companion.minutes
 
 // ======== DATA CLASSES ========
 /**
@@ -122,13 +127,41 @@ data class MealStatus(
 
 // ======== JSON PARSING ========
 /**
- * Loads and parses mess menu data from assets/messData.json.
+ * Lists root-level JSON menu files bundled in assets.
+ */
+fun getMessMenuFiles(context: Context): List<String> {
+    return context.assets.list("")
+        .orEmpty()
+        .filter { it.endsWith(".json", ignoreCase = true) }
+        .filter { fileName -> isMessMenuAsset(context, fileName) }
+        .sortedBy { it.lowercase(Locale.ROOT) }
+}
+
+/** Only JSON files with the menu sections expected by this app are selectable. */
+private fun isMessMenuAsset(context: Context, fileName: String): Boolean = runCatching {
+    context.assets.open(fileName).bufferedReader().use { reader ->
+        val meals = JSONObject(reader.readText()).getJSONObject("meals")
+        listOf("breakfast", "lunch", "high_tea", "dinner").all { mealKey ->
+            meals.optJSONObject(mealKey) != null
+        }
+    }
+}.getOrDefault(false)
+
+/**
+ * Uses the asset filename as the mess name shown to the user.
+ */
+fun messNameFromFile(fileName: String): String = fileName.substringBeforeLast('.')
+
+private const val DEFAULT_MESS_FILE = "Mayuri.json"
+
+/**
+ * Loads and parses mess menu data from the supplied asset file.
  * Returns a map of MealType to a map of day names to menu items.
  */
-fun loadMessData(context: Context): Map<MealType, Map<String, List<String>>> {
+fun loadMessData(context: Context, fileName: String): Map<MealType, Map<String, List<String>>> {
     return try {
         // Read JSON file from assets
-        val jsonString = context.assets.open("messData.json").bufferedReader().use { it.readText() }
+        val jsonString = context.assets.open(fileName).bufferedReader().use { it.readText() }
         val jsonObject = JSONObject(jsonString)
         val mealsObject = jsonObject.getJSONObject("meals")
 
@@ -273,19 +306,36 @@ fun MessMenuApp(
     onThemeToggle: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val messPreference = remember { MessPreference(context.applicationContext) }
+    val savedMessFile by messPreference.selectedMessFileFlow.collectAsState(initial = null)
 
     // Navigation state
     var showFullMenu by remember { mutableStateOf(false) }
+    var messFiles by remember { mutableStateOf<List<String>>(emptyList()) }
+    var messFilesLoaded by remember { mutableStateOf(false) }
+    val selectedMessFile = savedMessFile?.takeIf { it in messFiles }
+        ?: messFiles.firstOrNull { it.equals(DEFAULT_MESS_FILE, ignoreCase = true) }
+        ?: messFiles.firstOrNull()
 
     // Load mess data off the main thread to improve time-to-first-frame.
     var messData by remember { mutableStateOf<Map<MealType, Map<String, List<String>>>>(emptyMap()) }
     var dataLoadFailed by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        val loaded = withContext(Dispatchers.IO) { loadMessData(context) }
-        if (loaded.isEmpty()) {
-            dataLoadFailed = true
+        messFiles = withContext(Dispatchers.IO) { getMessMenuFiles(context) }
+        messFilesLoaded = true
+    }
+
+    LaunchedEffect(selectedMessFile, messFilesLoaded) {
+        if (selectedMessFile == null) {
+            dataLoadFailed = messFilesLoaded
+            return@LaunchedEffect
         }
+        dataLoadFailed = false
+        messData = emptyMap()
+        val loaded = withContext(Dispatchers.IO) { loadMessData(context, selectedMessFile) }
+        dataLoadFailed = loaded.isEmpty()
         messData = loaded
     }
 
@@ -296,7 +346,7 @@ fun MessMenuApp(
     // Auto-refresh every 60 seconds
     LaunchedEffect(Unit) {
         while (true) {
-            delay(60_000) // 60 seconds
+            delay(1.minutes)
             currentTime = LocalTime.now()
             currentDate = LocalDate.now()
         }
@@ -316,6 +366,9 @@ fun MessMenuApp(
             messData = messData,
             themeMode = themeMode,
             onThemeToggle = onThemeToggle,
+            messFiles = messFiles,
+            selectedMessFile = selectedMessFile,
+            onMessSelected = { fileName -> scope.launch { messPreference.setSelectedMessFile(fileName) } },
             onBackClick = { showFullMenu = false }
         )
     } else {
@@ -326,10 +379,9 @@ fun MessMenuApp(
             topBar = {
                 TopAppBar(
                     title = {
-                        Text(
-                            text = "Mess Menu",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold
+                        ActiveMessTitle(
+                            screenTitle = "Mess Menu",
+                            selectedMessFile = selectedMessFile
                         )
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -337,6 +389,13 @@ fun MessMenuApp(
                         titleContentColor = MaterialTheme.colorScheme.onBackground
                     ),
                     actions = {
+                        MessSelectorButton(
+                            messFiles = messFiles,
+                            selectedMessFile = selectedMessFile,
+                            onMessSelected = { fileName ->
+                                scope.launch { messPreference.setSelectedMessFile(fileName) }
+                            }
+                        )
                         ThemeToggleButton(
                             themeMode = themeMode,
                             onToggle = onThemeToggle
@@ -360,6 +419,66 @@ fun MessMenuApp(
                     // Fallback if data loading fails
                     ErrorState(modifier = Modifier.padding(innerPadding))
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun ActiveMessTitle(screenTitle: String, selectedMessFile: String?) {
+    Text(
+        text = selectedMessFile?.let(::messNameFromFile)?.let { "$screenTitle - $it" } ?: screenTitle,
+        style = MaterialTheme.typography.titleLarge,
+        fontWeight = FontWeight.SemiBold
+    )
+}
+
+@Composable
+fun MessSelectorButton(
+    messFiles: List<String>,
+    selectedMessFile: String?,
+    onMessSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Box(modifier = modifier) {
+        IconButton(
+            onClick = { expanded = true },
+            enabled = messFiles.isNotEmpty()
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Settings,
+                contentDescription = "Choose mess menu",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            messFiles.forEach { fileName ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = messNameFromFile(fileName),
+                            fontWeight = if (fileName == selectedMessFile) FontWeight.SemiBold else FontWeight.Normal
+                        )
+                    },
+                    onClick = {
+                        expanded = false
+                        onMessSelected(fileName)
+                    },
+                    trailingIcon = if (fileName == selectedMessFile) {
+                        {
+                            Icon(
+                                imageVector = Icons.Filled.Check,
+                                contentDescription = "Selected",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    } else null
+                )
             }
         }
     }
@@ -650,6 +769,9 @@ fun FullMenuScreen(
     messData: Map<MealType, Map<String, List<String>>>,
     themeMode: ThemeMode,
     onThemeToggle: () -> Unit,
+    messFiles: List<String>,
+    selectedMessFile: String?,
+    onMessSelected: (String) -> Unit,
     onBackClick: () -> Unit
 ) {
     Scaffold(
@@ -658,10 +780,9 @@ fun FullMenuScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        text = "Weekly Menu",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold
+                    ActiveMessTitle(
+                        screenTitle = "Weekly Menu",
+                        selectedMessFile = selectedMessFile
                     )
                 },
                 navigationIcon = {
@@ -678,6 +799,11 @@ fun FullMenuScreen(
                     titleContentColor = MaterialTheme.colorScheme.onBackground
                 ),
                 actions = {
+                    MessSelectorButton(
+                        messFiles = messFiles,
+                        selectedMessFile = selectedMessFile,
+                        onMessSelected = onMessSelected
+                    )
                     ThemeToggleButton(
                         themeMode = themeMode,
                         onToggle = onThemeToggle

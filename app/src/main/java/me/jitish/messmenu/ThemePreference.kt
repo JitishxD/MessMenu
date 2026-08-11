@@ -58,3 +58,21 @@ class ThemePreference(private val context: Context) {
         }
     }
 }
+
+class MessPreference(private val context: Context) {
+
+    companion object {
+        private val SELECTED_MESS_FILE_KEY = stringPreferencesKey("selected_mess_file")
+    }
+
+    /** The filename of the last menu selected by the user, or null on first launch. */
+    val selectedMessFileFlow: Flow<String?> = context.themeDataStore.data.map { preferences ->
+        preferences[SELECTED_MESS_FILE_KEY]
+    }
+
+    suspend fun setSelectedMessFile(fileName: String) {
+        context.themeDataStore.edit { preferences ->
+            preferences[SELECTED_MESS_FILE_KEY] = fileName
+        }
+    }
+}

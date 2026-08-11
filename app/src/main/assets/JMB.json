@@ -1,0 +1,43 @@
+{
+  "university": "VIT University Bhopal",
+  "hostel": "JMB Boys Hostel",
+  "month": "August 2026",
+  "meals": {
+    "breakfast": {
+      "Monday": ["Poha", "Dali Kachori", "Fruit", "Bread Butter/Jam", "Tea/Milk/Coffee"],
+      "Tuesday": ["Plain Paratha", "Aloo Sabji Gravy", "Sprouts Salad", "Fruit/Banana", "Bread Butter/Jam", "Tea/Milk/Coffee"],
+      "Wednesday": ["Poori", "Aloo Jhol", "Fruit", "Bread Butter/Jam", "Tea/Milk/Coffee"],
+      "Thursday": ["Variety Uthappam", "Sambhar", "Chutney", "Fruit", "Bread Butter/Jam", "Tea/Milk/Coffee"],
+      "Friday": ["Masala Dosa", "Sambhar", "Assorted Chutney", "Fruit", "Bread Butter/Jam", "Tea/Milk/Coffee"],
+      "Saturday": ["Chole Bhature", "Lemon Pieces", "Fruit/Banana", "Bread Butter/Jam", "Tea/Milk/Coffee"],
+      "Sunday": ["Idli", "Vada", "Sambhar", "Assorted Chutney", "Fruit", "Bread Butter/Jam", "Tea/Milk/Coffee"]
+    },
+    "lunch": {
+      "Monday": ["Butter Roti", "Kadi Pakoda", "Sessonal Veg.", "Dal Fry", "Salad", "Fryums", "Pickle"],
+      "Tuesday": ["Poori", "Punjabi Chole", "Ghee Rice", "Dal Tadka", "Punjabi Khada Salad", "Fryums", "Keseri Kheer", "Pickle"],
+      "Wednesday": ["Tawa Roti", "Jeera Aaloo", "Hari Mirch Dal Tadka", "Steam Rice", "Fresh Salad With Onion", "Khajoor Ki Launji", "Tadke Wala Dahi"],
+      "Thursday": ["Tadke Wali Chach", "Gatte Ki Sabji", "Veg. Pulao", "Navratan Dal", "White Rice", "Sada Bati", "Churma", "Chutney", "Papad Churi"],
+      "Friday": ["Roti", "Aloo Matar Masala", "Chole Masala", "Veg Pulao", "Fry Dal", "Juice/Buttermilk", "Pickle", "Fresh Salad"],
+      "Saturday": ["Tawa Roti", "Mix Veg.", "Rajma Masala", "Jeera Rice", "Hari Mirch Dal Tadka", "Boondi Raita", "Pickle", "Fryums"],
+      "Sunday": ["Roti", "Chawla Gravy", "Veg Biryani", "Salad", "Onion Raita", "Pickle", "Veg Jalfrezi"]
+    },
+    "high_tea": {
+      "Monday": ["Noodles - Medium", "Tea/Milk/Coffee"],
+      "Tuesday": ["Sandwich", "Ketchup/Chutney", "Tea/Milk/Coffee"],
+      "Wednesday": ["Samosa", "Mint Chutney", "Tea/Milk/Coffee"],
+      "Thursday": ["Vada Pao", "Fried Green Chilli/Green Chutney", "Tea/Milk/Coffee"],
+      "Friday": ["Veg Cutlat", "Chutney", "Tea/Milk/Coffee"],
+      "Saturday": ["Bhel Puri", "Tea/Milk/Coffee"],
+      "Sunday": ["Variety Sauce Pasta", "Tea/Milk/Coffee"]
+    },
+    "dinner": {
+      "Monday": ["Shahi Paneer", "Punjabi Dum Aloo", "Veg Pulao", "Dal Fry", "Tawa Roti", "Pickle", "Shahi Tukda"],
+      "Tuesday": ["Methi Matar Malayai", "Plain Rice", "Dry Bhindi Masala/Brinjal", "Dal Yellow", "Jeera Roti", "Pickle"],
+      "Wednesday": ["Corriender Roti", "Dal Hari Mirch", "Seasonal Veg.", "Rajma Masala", "Matar Pulao", "Fresh Salad", "Suji Halwa", "Potato Wedges"],
+      "Thursday": ["Tawa Roti", "Dahi Aaloo Tikki Firied", "Jeera Rice", "Dal Tadka", "Pickle", "Fresh Salad", "Mutter Panner"],
+      "Friday": ["Seasonal Veg", "Aloo Soya Masala", "Plain Rice", "Dal Makhani", "Tawa Roti", "Pickle"],
+      "Saturday": ["Sev Tamatar Gravy", "Besan", "Kuska Rice", "Dal Tadka", "Methi Chapathi", "Pickle"],
+      "Sunday": ["Tawa Roti", "Kadhai Paneer", "Seasonal Veg.", "Dal Tadka", "Jeera Rice", "Fresh Salad With Onion", "Pickle", "Pineapple Seera"]
+    }
+  }
+}
