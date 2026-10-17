@@ -1,0 +1,25 @@
+{
+  "updatedAt": "2026-10-17T00:00:00Z",
+  "menus": [
+    {
+      "id": "mayuri",
+      "name": "Mayuri",
+      "file": "Mayuri.json"
+    },
+    {
+      "id": "jmb",
+      "name": "JMB",
+      "file": "JMB.json"
+    },
+    {
+      "id": "safal-week-1",
+      "name": "Safal Week 1",
+      "file": "Safal Week 1.json"
+    },
+    {
+      "id": "safal-week-2",
+      "name": "Safal Week 2",
+      "file": "Safal Week 2.json"
+    }
+  ]
+}

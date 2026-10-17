@@ -1,7 +1,7 @@
 package me.jitish.messmenu
 
-import android.content.Context
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -46,6 +46,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -59,6 +61,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
@@ -69,7 +72,6 @@ import kotlinx.coroutines.withContext
 
 import me.jitish.messmenu.ui.theme.MessMenuTheme
 
-import org.json.JSONObject
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -124,80 +126,6 @@ data class MealStatus(
     val meal: Meal,
     val dayName: String
 )
-
-// ======== JSON PARSING ========
-/**
- * Lists root-level JSON menu files bundled in assets.
- */
-fun getMessMenuFiles(context: Context): List<String> {
-    return context.assets.list("")
-        .orEmpty()
-        .filter { it.endsWith(".json", ignoreCase = true) }
-        .filter { fileName -> isMessMenuAsset(context, fileName) }
-        .sortedBy { it.lowercase(Locale.ROOT) }
-}
-
-/** Only JSON files with the menu sections expected by this app are selectable. */
-private fun isMessMenuAsset(context: Context, fileName: String): Boolean = runCatching {
-    context.assets.open(fileName).bufferedReader().use { reader ->
-        val meals = JSONObject(reader.readText()).getJSONObject("meals")
-        listOf("breakfast", "lunch", "high_tea", "dinner").all { mealKey ->
-            meals.optJSONObject(mealKey) != null
-        }
-    }
-}.getOrDefault(false)
-
-/**
- * Uses the asset filename as the mess name shown to the user.
- */
-fun messNameFromFile(fileName: String): String = fileName.substringBeforeLast('.')
-
-private const val DEFAULT_MESS_FILE = "Mayuri.json"
-
-/**
- * Loads and parses mess menu data from the supplied asset file.
- * Returns a map of MealType to a map of day names to menu items.
- */
-fun loadMessData(context: Context, fileName: String): Map<MealType, Map<String, List<String>>> {
-    return try {
-        // Read JSON file from assets
-        val jsonString = context.assets.open(fileName).bufferedReader().use { it.readText() }
-        val jsonObject = JSONObject(jsonString)
-        val mealsObject = jsonObject.getJSONObject("meals")
-
-        // Parse each meal type
-        val result = mutableMapOf<MealType, Map<String, List<String>>>()
-
-        // Map JSON keys to MealType enum
-        val mealMapping = mapOf(
-            "breakfast" to MealType.BREAKFAST,
-            "lunch" to MealType.LUNCH,
-            "high_tea" to MealType.HIGH_TEA,
-            "dinner" to MealType.DINNER
-        )
-
-        mealMapping.forEach { (jsonKey, mealType) ->
-            val mealObj = mealsObject.getJSONObject(jsonKey)
-            val dayMenu = mutableMapOf<String, List<String>>()
-
-            // Parse each day's menu
-            mealObj.keys().forEach { day ->
-                val itemsArray = mealObj.getJSONArray(day)
-                val items = mutableListOf<String>()
-                for (i in 0 until itemsArray.length()) {
-                    items.add(itemsArray.getString(i))
-                }
-                dayMenu[day] = items
-            }
-            result[mealType] = dayMenu
-        }
-
-        result
-    } catch (@Suppress("UNUSED_PARAMETER") e: Exception) {
-        // Return empty map if parsing fails
-        emptyMap()
-    }
-}
 
 // ======== MEAL DETECTION LOGIC ========
 /**
@@ -308,42 +236,102 @@ fun MessMenuApp(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val messPreference = remember { MessPreference(context.applicationContext) }
+    val menuRepository = remember { MenuRepository(context.applicationContext) }
     val savedMessFile by messPreference.selectedMessFileFlow.collectAsState(initial = null)
 
-    // Navigation state
     var showFullMenu by remember { mutableStateOf(false) }
     var messFiles by remember { mutableStateOf<List<String>>(emptyList()) }
-    var messFilesLoaded by remember { mutableStateOf(false) }
-    val selectedMessFile = savedMessFile?.takeIf { it in messFiles }
-        ?: messFiles.firstOrNull { it.equals(DEFAULT_MESS_FILE, ignoreCase = true) }
-        ?: messFiles.firstOrNull()
-
-    // Load mess data off the main thread to improve time-to-first-frame.
+    var messDisplayNames by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var initialLoadDone by remember { mutableStateOf(false) }
+    var isRefreshing by remember { mutableStateOf(false) }
+    var lastSuccessfulFetchAt by remember { mutableStateOf<Long?>(null) }
+    var offlineNoCache by remember { mutableStateOf(false) }
     var messData by remember { mutableStateOf<Map<MealType, Map<String, List<String>>>>(emptyMap()) }
     var dataLoadFailed by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        messFiles = withContext(Dispatchers.IO) { getMessMenuFiles(context) }
-        messFilesLoaded = true
+    val selectedMessFile = savedMessFile?.takeIf { it in messFiles }
+        ?: defaultMessFile(messFiles)
+
+    suspend fun readCachedMenuLists(): Pair<List<String>, Map<String, String>> {
+        return withContext(Dispatchers.IO) {
+            val files = sortedMessFiles(menuRepository.listCachedMenuFiles())
+            val names = files.associateWith { menuRepository.displayNameFor(it) }
+            files to names
+        }
     }
 
-    LaunchedEffect(selectedMessFile, messFilesLoaded) {
-        if (selectedMessFile == null) {
-            dataLoadFailed = messFilesLoaded
-            return@LaunchedEffect
+    suspend fun reloadSelectedMess(fileName: String?) {
+        if (fileName == null) {
+            messData = emptyMap()
+            dataLoadFailed = initialLoadDone && messFiles.isEmpty()
+            return
         }
         dataLoadFailed = false
-        messData = emptyMap()
-        val loaded = withContext(Dispatchers.IO) { loadMessData(context, selectedMessFile) }
+        val loaded = withContext(Dispatchers.IO) { menuRepository.loadMessData(fileName) }
         dataLoadFailed = loaded.isEmpty()
         messData = loaded
     }
 
-    // State for current time - triggers recomposition
+    suspend fun performRefresh(userInitiated: Boolean) {
+        val result = withContext(Dispatchers.IO) { menuRepository.refresh() }
+        when (result) {
+            is MenuRefreshResult.Success -> {
+                offlineNoCache = false
+                lastSuccessfulFetchAt = result.lastSuccessfulFetchAt
+                val (files, names) = readCachedMenuLists()
+                messFiles = files
+                messDisplayNames = names
+            }
+            is MenuRefreshResult.Offline -> {
+                if (userInitiated && result.hasCache) {
+                    Toast.makeText(context, "You're offline", Toast.LENGTH_SHORT).show()
+                }
+                if (!result.hasCache) {
+                    offlineNoCache = true
+                    messFiles = emptyList()
+                    messDisplayNames = emptyMap()
+                    messData = emptyMap()
+                }
+            }
+            is MenuRefreshResult.Failed -> {
+                if (userInitiated && result.hasCache) {
+                    Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
+                }
+                if (!result.hasCache) {
+                    offlineNoCache = true
+                    messFiles = emptyList()
+                    messDisplayNames = emptyMap()
+                    messData = emptyMap()
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        val cached = withContext(Dispatchers.IO) { menuRepository.loadCachedState() }
+        lastSuccessfulFetchAt = cached.lastSuccessfulFetchAt
+        val (files, names) = readCachedMenuLists()
+        messFiles = files
+        messDisplayNames = names
+        initialLoadDone = true
+        if (messFiles.isEmpty()) {
+            isRefreshing = true
+            performRefresh(userInitiated = false)
+            isRefreshing = false
+        } else {
+            // Silent background revalidate while showing cached menus.
+            performRefresh(userInitiated = false)
+        }
+    }
+
+    LaunchedEffect(selectedMessFile, messFiles, initialLoadDone) {
+        if (!initialLoadDone) return@LaunchedEffect
+        reloadSelectedMess(selectedMessFile)
+    }
+
     var currentTime by remember { mutableStateOf(LocalTime.now()) }
     var currentDate by remember { mutableStateOf(LocalDate.now()) }
 
-    // Auto-refresh every 60 seconds
     LaunchedEffect(Unit) {
         while (true) {
             delay(1.minutes)
@@ -352,27 +340,26 @@ fun MessMenuApp(
         }
     }
 
-    // Get current meal status
     val mealStatus = getMealStatus(messData, currentTime, currentDate)
+    val pullRefreshState = rememberPullToRefreshState()
+    val refreshedLabel = formatLastRefreshed(lastSuccessfulFetchAt)
 
-    // Handle back button press
     BackHandler(enabled = showFullMenu) {
         showFullMenu = false
     }
 
     if (showFullMenu) {
-        // Full Menu Screen
         FullMenuScreen(
             messData = messData,
             themeMode = themeMode,
             onThemeToggle = onThemeToggle,
             messFiles = messFiles,
+            messDisplayNames = messDisplayNames,
             selectedMessFile = selectedMessFile,
             onMessSelected = { fileName -> scope.launch { messPreference.setSelectedMessFile(fileName) } },
             onBackClick = { showFullMenu = false }
         )
     } else {
-        // Home Screen
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             containerColor = MaterialTheme.colorScheme.background,
@@ -381,7 +368,7 @@ fun MessMenuApp(
                     title = {
                         ActiveMessTitle(
                             screenTitle = "Mess Menu",
-                            selectedMessFile = selectedMessFile
+                            selectedMessName = selectedMessFile?.let { messDisplayNames[it] }
                         )
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -391,6 +378,7 @@ fun MessMenuApp(
                     actions = {
                         MessSelectorButton(
                             messFiles = messFiles,
+                            messDisplayNames = messDisplayNames,
                             selectedMessFile = selectedMessFile,
                             onMessSelected = { fileName ->
                                 scope.launch { messPreference.setSelectedMessFile(fileName) }
@@ -404,20 +392,40 @@ fun MessMenuApp(
                 )
             }
         ) { innerPadding ->
-            when {
-                messData.isEmpty() && !dataLoadFailed -> {
-                    LoadingState(modifier = Modifier.padding(innerPadding))
-                }
-                mealStatus != null -> {
-                    MessMenuContent(
-                        mealStatus = mealStatus,
-                        modifier = Modifier.padding(innerPadding),
-                        onViewFullMenuClick = { showFullMenu = true }
-                    )
-                }
-                else -> {
-                    // Fallback if data loading fails
-                    ErrorState(modifier = Modifier.padding(innerPadding))
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = {
+                    scope.launch {
+                        isRefreshing = true
+                        performRefresh(userInitiated = true)
+                        isRefreshing = false
+                    }
+                },
+                state = pullRefreshState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            ) {
+                when {
+                    !initialLoadDone || (messData.isEmpty() && !dataLoadFailed && !offlineNoCache && messFiles.isEmpty()) -> {
+                        LoadingState()
+                    }
+                    offlineNoCache && messFiles.isEmpty() -> {
+                        OfflineEmptyState()
+                    }
+                    mealStatus != null -> {
+                        MessMenuContent(
+                            mealStatus = mealStatus,
+                            refreshedLabel = refreshedLabel,
+                            onViewFullMenuClick = { showFullMenu = true }
+                        )
+                    }
+                    dataLoadFailed || messFiles.isEmpty() -> {
+                        ErrorState()
+                    }
+                    else -> {
+                        LoadingState()
+                    }
                 }
             }
         }
@@ -425,9 +433,9 @@ fun MessMenuApp(
 }
 
 @Composable
-fun ActiveMessTitle(screenTitle: String, selectedMessFile: String?) {
+fun ActiveMessTitle(screenTitle: String, selectedMessName: String?) {
     Text(
-        text = selectedMessFile?.let(::messNameFromFile)?.let { "$screenTitle - $it" } ?: screenTitle,
+        text = selectedMessName?.let { "$screenTitle - $it" } ?: screenTitle,
         style = MaterialTheme.typography.titleLarge,
         fontWeight = FontWeight.SemiBold
     )
@@ -436,6 +444,7 @@ fun ActiveMessTitle(screenTitle: String, selectedMessFile: String?) {
 @Composable
 fun MessSelectorButton(
     messFiles: List<String>,
+    messDisplayNames: Map<String, String>,
     selectedMessFile: String?,
     onMessSelected: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -461,7 +470,7 @@ fun MessSelectorButton(
                 DropdownMenuItem(
                     text = {
                         Text(
-                            text = messNameFromFile(fileName),
+                            text = messDisplayNames[fileName] ?: messNameFromFile(fileName),
                             fontWeight = if (fileName == selectedMessFile) FontWeight.SemiBold else FontWeight.Normal
                         )
                     },
@@ -531,6 +540,7 @@ fun ThemeToggleButton(
 fun MessMenuContent(
     mealStatus: MealStatus,
     modifier: Modifier = Modifier,
+    refreshedLabel: String? = null,
     onViewFullMenuClick: () -> Unit = {}
 ) {
     LazyColumn(
@@ -539,15 +549,22 @@ fun MessMenuContent(
             .padding(horizontal = 24.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Top spacing for edge-to-edge
         item { Spacer(modifier = Modifier.height(8.dp)) }
 
-        // Status Header (Now Serving / Upcoming Dish)
         item {
             StatusHeader(isNowServing = mealStatus.isNowServing)
         }
 
-        // Meal Info Card
+        if (refreshedLabel != null) {
+            item {
+                Text(
+                    text = refreshedLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+                )
+            }
+        }
+
         item {
             MealInfoCard(
                 mealType = mealStatus.meal.type,
@@ -555,7 +572,6 @@ fun MessMenuContent(
             )
         }
 
-        // Menu Section Header
         item {
             Text(
                 text = "Menu",
@@ -565,7 +581,6 @@ fun MessMenuContent(
             )
         }
 
-        // Menu Items
         itemsIndexed(mealStatus.meal.menuItems) { index, item ->
             MenuItemRow(
                 index = index + 1,
@@ -573,7 +588,6 @@ fun MessMenuContent(
             )
         }
 
-        // View Full Menu Button
         item {
             Button(
                 onClick = onViewFullMenuClick,
@@ -595,7 +609,6 @@ fun MessMenuContent(
             }
         }
 
-        // Bottom spacing
         item { Spacer(modifier = Modifier.height(16.dp)) }
     }
 }
@@ -744,7 +757,8 @@ fun ErrorState(modifier: Modifier = Modifier) {
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(horizontal = 32.dp)
         ) {
             Text(
                 text = "Unable to load menu",
@@ -752,9 +766,39 @@ fun ErrorState(modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = "Please check the app data",
+                text = "Pull down to try again",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            )
+        }
+    }
+}
+
+/**
+ * Shown when the device is offline and there is no cached menu yet.
+ */
+@Composable
+fun OfflineEmptyState(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(horizontal = 32.dp)
+        ) {
+            Text(
+                text = "You're offline",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = "No cached menu yet. Connect to the internet and pull down to refresh.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                textAlign = TextAlign.Center
             )
         }
     }
@@ -770,6 +814,7 @@ fun FullMenuScreen(
     themeMode: ThemeMode,
     onThemeToggle: () -> Unit,
     messFiles: List<String>,
+    messDisplayNames: Map<String, String>,
     selectedMessFile: String?,
     onMessSelected: (String) -> Unit,
     onBackClick: () -> Unit
@@ -782,7 +827,7 @@ fun FullMenuScreen(
                 title = {
                     ActiveMessTitle(
                         screenTitle = "Weekly Menu",
-                        selectedMessFile = selectedMessFile
+                        selectedMessName = selectedMessFile?.let { messDisplayNames[it] }
                     )
                 },
                 navigationIcon = {
@@ -801,6 +846,7 @@ fun FullMenuScreen(
                 actions = {
                     MessSelectorButton(
                         messFiles = messFiles,
+                        messDisplayNames = messDisplayNames,
                         selectedMessFile = selectedMessFile,
                         onMessSelected = onMessSelected
                     )
@@ -1186,6 +1232,19 @@ fun ErrorStatePreview() {
             containerColor = MaterialTheme.colorScheme.background
         ) { innerPadding ->
             ErrorState(modifier = Modifier.padding(innerPadding))
+        }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun OfflineEmptyStatePreview() {
+    MessMenuTheme(themeMode = ThemeMode.LIGHT) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            containerColor = MaterialTheme.colorScheme.background
+        ) { innerPadding ->
+            OfflineEmptyState(modifier = Modifier.padding(innerPadding))
         }
     }
 }
