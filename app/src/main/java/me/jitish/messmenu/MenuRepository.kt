@@ -306,17 +306,18 @@ private fun JSONArray.toStringList(): List<String> {
     return items
 }
 
+/** Relative age for the refresh chip, e.g. "just now", "10 days ago". */
 fun formatLastRefreshed(epochMillis: Long?, nowMillis: Long = System.currentTimeMillis()): String {
-    if (epochMillis == null) return "Not refreshed yet"
+    if (epochMillis == null) return "not yet"
     val delta = (nowMillis - epochMillis).coerceAtLeast(0L)
     val minutes = TimeUnit.MILLISECONDS.toMinutes(delta)
     val hours = TimeUnit.MILLISECONDS.toHours(delta)
     val days = TimeUnit.MILLISECONDS.toDays(delta)
     return when {
-        minutes < 1 -> "Refreshed just now"
-        minutes < 60 -> "Refreshed $minutes min ago"
-        hours < 24 -> "Refreshed $hours hour${if (hours == 1L) "" else "s"} ago"
-        else -> "Refreshed $days day${if (days == 1L) "" else "s"} ago"
+        minutes < 1 -> "just now"
+        minutes < 60 -> "$minutes min ago"
+        hours < 24 -> "$hours hour${if (hours == 1L) "" else "s"} ago"
+        else -> "$days day${if (days == 1L) "" else "s"} ago"
     }
 }
 
